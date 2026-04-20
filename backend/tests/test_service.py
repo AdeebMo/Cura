@@ -3,26 +3,97 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from app.bootstrap import build_consultation_service
 from app.core.config import Settings
+from app.db.runtime import DatabaseRuntime
+from app.integrations.lisp_bridge import LispBridge
+from app.integrations.prolog_bridge import PrologBridge
+from app.repositories.condition_catalog_repository import ConditionCatalogRepository
+from app.repositories.consultation_event_repository import ConsultationEventRepository
+from app.repositories.consultation_log_repository import ConsultationLogRepository
+from app.repositories.consultation_message_repository import ConsultationMessageRepository
+from app.repositories.question_catalog_repository import QuestionCatalogRepository
+from app.repositories.session_repository import SessionRepository
+from app.repositories.symptom_catalog_repository import SymptomCatalogRepository
+from app.services.consultation_service import ConsultationService, InvalidTurnError
+from app.services.diagnosis_service import DiagnosisService
+from app.services.normalization_service import NormalizationService
+from app.services.paradigm_catalog_service import (
+    CatalogBootstrapService,
+    ParadigmCatalogValidationService,
+    PrologCatalogInspector,
+)
 
 
-def build_service(work_directory: Path):
+def _test_scratch_root() -> Path:
     project_root = Path(__file__).resolve().parents[2]
+    scratch_root = project_root / "backend" / "tmp_test_runs"
+    scratch_root.mkdir(parents=True, exist_ok=True)
+    return scratch_root
+
+
+def build_service(work_directory: Path) -> tuple[ConsultationService, Path]:
+    project_root = Path(__file__).resolve().parents[2]
+    database_name = f"cura_test_{work_directory.name}"
     test_settings = Settings(
         project_root=project_root,
-        backend_root=work_directory,
-        database_url=f"sqlite+pysqlite:///{(work_directory / 'cura-test.db').as_posix()}",
+        backend_root=project_root / "backend",
+        database_url=(
+            f"sqlite+pysqlite:///file:{database_name}?mode=memory&cache=shared&uri=true"
+        ),
     )
-    return build_consultation_service(test_settings)
+    database_runtime = DatabaseRuntime(test_settings)
+    database_runtime.initialize_schema()
+
+    session_repository = SessionRepository()
+    message_repository = ConsultationMessageRepository()
+    event_repository = ConsultationEventRepository()
+    symptom_catalog_repository = SymptomCatalogRepository()
+    condition_catalog_repository = ConditionCatalogRepository()
+    question_catalog_repository = QuestionCatalogRepository()
+    normalization_service = NormalizationService(
+        LispBridge(test_settings),
+        symptom_catalog_repository,
+    )
+    diagnosis_service = DiagnosisService(PrologBridge(test_settings))
+    inspector = PrologCatalogInspector(test_settings)
+
+    with database_runtime.session_scope() as db_session:
+        CatalogBootstrapService(
+            symptom_catalog_repository,
+            condition_catalog_repository,
+            question_catalog_repository,
+            inspector,
+        ).seed_catalogs(db_session)
+        ParadigmCatalogValidationService(
+            symptom_catalog_repository,
+            condition_catalog_repository,
+            question_catalog_repository,
+            normalization_service,
+            inspector,
+        ).validate(db_session)
+
+    log_path = _test_scratch_root() / f"{work_directory.name}.jsonl"
+    if log_path.exists():
+        log_path.unlink()
+
+    return (
+        ConsultationService(
+            database_runtime=database_runtime,
+            session_repository=session_repository,
+            message_repository=message_repository,
+            event_repository=event_repository,
+            normalization_service=normalization_service,
+            diagnosis_service=diagnosis_service,
+            log_repository=ConsultationLogRepository(log_path, test_settings),
+        ),
+        log_path,
+    )
 
 
 def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
-    project_root = Path(__file__).resolve().parents[2]
-    temp_dir = Path(tempfile.mkdtemp(dir=project_root / "backend"))
-
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service = build_service(temp_dir)
+        service, _ = build_service(temp_dir)
         session = service.create_session(
             alias="Ava",
             age_group="adult",
@@ -58,11 +129,9 @@ def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
 
 
 def test_service_records_reasoning_metadata_and_snapshot() -> None:
-    project_root = Path(__file__).resolve().parents[2]
-    temp_dir = Path(tempfile.mkdtemp(dir=project_root / "backend"))
-
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service = build_service(temp_dir)
+        service, snapshot_path = build_service(temp_dir)
         session = service.create_session(
             alias="Noor",
             age_group="adult",
@@ -86,7 +155,6 @@ def test_service_records_reasoning_metadata_and_snapshot() -> None:
             {"assistant_message": turn.assistant_message},
         )
 
-        snapshot_path = temp_dir / "data" / "consultations.jsonl"
         payload = json.loads(snapshot_path.read_text(encoding="utf-8").strip())
         assert payload["event_type"] == "free_text_turn"
         assert payload["context"]["assistant_message"] == turn.assistant_message
@@ -95,11 +163,9 @@ def test_service_records_reasoning_metadata_and_snapshot() -> None:
 
 
 def test_service_persists_session_state_across_service_instances() -> None:
-    project_root = Path(__file__).resolve().parents[2]
-    temp_dir = Path(tempfile.mkdtemp(dir=project_root / "backend"))
-
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        first_service = build_service(temp_dir)
+        first_service, _ = build_service(temp_dir)
         session = first_service.create_session(
             alias="Zayd",
             age_group="adult",
@@ -112,7 +178,7 @@ def test_service_persists_session_state_across_service_instances() -> None:
             "I have fever, cough, and a sore throat.",
         )
 
-        second_service = build_service(temp_dir)
+        second_service, _ = build_service(temp_dir)
         follow_up_turn = second_service.handle_follow_up_answer(
             session.session_id,
             initial_turn.diagnostic_bundle.next_question.id,
@@ -122,5 +188,80 @@ def test_service_persists_session_state_across_service_instances() -> None:
         assert follow_up_turn.session.session_id == session.session_id
         assert len(follow_up_turn.session.consultation_log.entries) >= 5
         assert follow_up_turn.session.pending_question is not None
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_service_rejects_session_without_disclaimer() -> None:
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    try:
+        service, _ = build_service(temp_dir)
+
+        try:
+            service.create_session(
+                alias="Sara",
+                age_group="adult",
+                sex="female",
+                vitals={},
+                disclaimer_accepted=False,
+            )
+        except InvalidTurnError as exc:
+            assert "disclaimer" in str(exc).lower()
+        else:
+            raise AssertionError("Expected disclaimer validation to fail.")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_service_flags_red_flag_symptoms_and_preserves_direct_token_matches() -> None:
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    try:
+        service, _ = build_service(temp_dir)
+        session = service.create_session(
+            alias="Lina",
+            age_group="adult",
+            sex="female",
+            vitals={},
+            disclaimer_accepted=True,
+        )
+
+        turn = service.handle_free_text_turn(
+            session.session_id,
+            "I am sneezing and I have chest pain and trouble breathing.",
+        )
+
+        assert "sneezing" in turn.normalized_input.canonical_symptoms
+        assert turn.normalized_input.matched_phrases
+        assert {flag.id for flag in turn.diagnostic_bundle.red_flags} >= {
+            "chest_pain",
+            "difficulty_breathing",
+        }
+        assert "urgent clinical evaluation" in turn.assistant_message.lower()
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_service_rejects_follow_up_for_the_wrong_question() -> None:
+    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    try:
+        service, _ = build_service(temp_dir)
+        session = service.create_session(
+            alias="Omar",
+            age_group="adult",
+            sex="male",
+            vitals={"temperature_c": 38.5},
+            disclaimer_accepted=True,
+        )
+        turn = service.handle_free_text_turn(
+            session.session_id,
+            "I have fever and cough.",
+        )
+
+        try:
+            service.handle_follow_up_answer(session.session_id, "q_not_the_real_question", "yes")
+        except InvalidTurnError as exc:
+            assert "does not match" in str(exc).lower()
+        else:
+            raise AssertionError("Expected mismatched follow-up validation to fail.")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)

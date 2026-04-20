@@ -77,6 +77,12 @@ Responsibilities:
 - map synonyms to canonical symptom tokens
 - remain stateless and pure
 
+Important note:
+
+- `canonical_symptoms` contains every recognized symptom token
+- `matched_phrases` only contains phrase-level alias matches
+- direct single-word matches, such as `sneezing`, can normalize correctly while `matched_phrases` remains empty
+
 ## Python to Prolog
 
 Protocol:
@@ -128,4 +134,3 @@ Example response:
   ]
 }
 ```
-

@@ -29,3 +29,12 @@ def test_lisp_bridge_exposes_canonical_inventory_and_new_synonyms() -> None:
     assert {"persistent_vomiting", "dizziness"} <= inventory
     assert "persistent_vomiting" in result.canonical_symptoms
     assert "dizziness" in result.canonical_symptoms
+
+
+def test_lisp_bridge_distinguishes_direct_token_matches_from_phrase_matches() -> None:
+    bridge = LispBridge()
+    result = bridge.normalize("I am sneezing.")
+
+    assert result.canonical_symptoms == ["sneezing"]
+    assert result.matched_phrases == []
+    assert result.unknown_terms == []

@@ -8,6 +8,7 @@ from typing import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import Settings, settings
 from app.db.base import Base
@@ -31,19 +32,28 @@ class DatabaseRuntime:
     def _create_engine(self) -> Engine:
         database_url = self._settings.resolved_database_url
         connect_args: dict[str, object] = {}
+        engine_kwargs: dict[str, object] = {
+            "echo": self._settings.database_echo,
+            "future": True,
+            "pool_pre_ping": True,
+            "connect_args": connect_args,
+        }
 
         if database_url.startswith("sqlite"):
-            database_path = database_url.split("///", maxsplit=1)[-1]
-            Path(database_path).parent.mkdir(parents=True, exist_ok=True)
             connect_args["check_same_thread"] = False
+            if "uri=true" in database_url:
+                connect_args["uri"] = True
 
-        return create_engine(
-            database_url,
-            echo=self._settings.database_echo,
-            future=True,
-            pool_pre_ping=True,
-            connect_args=connect_args,
-        )
+            is_memory_database = ":memory:" in database_url or "mode=memory" in database_url
+            if not is_memory_database:
+                database_path = database_url.split("///", maxsplit=1)[-1]
+                if "?" in database_path:
+                    database_path = database_path.split("?", maxsplit=1)[0]
+                Path(database_path).parent.mkdir(parents=True, exist_ok=True)
+            else:
+                engine_kwargs["poolclass"] = StaticPool
+
+        return create_engine(database_url, **engine_kwargs)
 
     def initialize_schema(self) -> None:
         Base.metadata.create_all(self._engine)

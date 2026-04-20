@@ -55,3 +55,22 @@ def test_prolog_bridge_flags_more_severe_dehydration_patterns() -> None:
     assert result.diagnoses
     assert result.diagnoses[0].condition == "dehydration"
     assert {flag.id for flag in result.red_flags} >= {"severe_dehydration"}
+
+
+def test_prolog_bridge_prefers_allergy_for_sneezing_and_runny_nose() -> None:
+    bridge = PrologBridge()
+    result = bridge.diagnose(
+        {
+            "demographics": {"age_group": "adult", "sex": "female"},
+            "vitals": {},
+            "confirmed_symptoms": ["sneezing", "runny_nose"],
+            "denied_symptoms": [],
+            "unknown_symptoms": [],
+            "asked_question_ids": [],
+        }
+    )
+
+    assert result.diagnoses
+    assert result.diagnoses[0].condition == "allergy"
+    assert result.next_question is not None
+    assert result.next_question.target_symptom in {"itchy_eyes", "watery_eyes"}
