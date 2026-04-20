@@ -1,0 +1,100 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0f1728;
+  background-color: #f8fbfd;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f8fbfd;
+  color: #0f1728;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.55) transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body::-webkit-scrollbar,
+.modern-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+body::-webkit-scrollbar-track,
+.modern-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb,
+.modern-scrollbar::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.72), rgba(100, 116, 139, 0.62));
+  background-clip: padding-box;
+}
+
+body::-webkit-scrollbar-thumb:hover,
+.modern-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.78), rgba(71, 85, 105, 0.68));
+  background-clip: padding-box;
+}
+
+body::-webkit-scrollbar-corner,
+.modern-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.modern-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.55) transparent;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+::selection {
+  background: rgba(11, 114, 133, 0.18);
+  color: #0f1728;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise-in {
+  animation: rise-in 560ms cubic-bezier(0.2, 0.65, 0.2, 1) both;
+}
+
+.animate-rise-in-delayed {
+  animation: rise-in 640ms cubic-bezier(0.2, 0.65, 0.2, 1) 120ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in,
+  .animate-rise-in-delayed {
+    animation: none;
+  }
+}

@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: cura-backend
+Version: 0.1.0
+Summary: Educational rule-based diagnostic assistant backend
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<1.0,>=0.115
+Requires-Dist: pydantic<3.0,>=2.8
+Requires-Dist: uvicorn[standard]<1.0,>=0.30
+Provides-Extra: dev
+Requires-Dist: httpx<1.0,>=0.27; extra == "dev"
+Requires-Dist: pytest<9.0,>=8.3; extra == "dev"
+
+# Cura Backend
+
+FastAPI orchestration layer for the Cura educational diagnostic assistant.
+
+This package owns:
+
+- OOP session and consultation state
+- subprocess bridges to Common Lisp and SWI-Prolog
+- API contracts for the React frontend
+- consultation logging and session coordination
