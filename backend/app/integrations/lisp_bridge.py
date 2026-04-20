@@ -23,9 +23,9 @@ class LispBridge:
             return []
         return []
 
-    def normalize(self, text: str) -> NormalizedInput:
+    def _run_lisp(self, *args: str, text: str | None = None) -> str:
         process = subprocess.run(
-            [self._settings.sbcl_command, "--script", str(self._settings.lisp_entrypoint)],
+            [self._settings.sbcl_command, "--script", str(self._settings.lisp_entrypoint), *args],
             input=text,
             capture_output=True,
             text=True,
@@ -39,9 +39,11 @@ class LispBridge:
         raw_output = process.stdout.strip()
         if not raw_output:
             raise LispBridgeError("Lisp normalization returned no output")
+        return raw_output
 
+    def normalize(self, text: str) -> NormalizedInput:
         try:
-            parsed = plist_to_dict(parse_sexp(raw_output))
+            parsed = plist_to_dict(parse_sexp(self._run_lisp(text=text)))
         except SExpressionParseError as exc:
             raise LispBridgeError(f"Could not parse Lisp output: {exc}") from exc
 
@@ -64,3 +66,14 @@ class LispBridge:
             matched_phrases=matched_phrases,
             unknown_terms=unknown_terms,
         )
+
+    def canonical_inventory(self) -> list[str]:
+        try:
+            parsed = parse_sexp(self._run_lisp("--inventory"))
+        except SExpressionParseError as exc:
+            raise LispBridgeError(f"Could not parse Lisp inventory output: {exc}") from exc
+
+        if not isinstance(parsed, list):
+            raise LispBridgeError("Lisp inventory output was not a list")
+
+        return [value for value in parsed if isinstance(value, str)]

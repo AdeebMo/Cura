@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import router
+from app.bootstrap import get_consultation_service
 from app.core.config import settings
 
 app = FastAPI(
@@ -26,5 +27,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.include_router(router)
+@app.on_event("startup")
+def startup() -> None:
+    get_consultation_service()
 
+
+app.include_router(router)

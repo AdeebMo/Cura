@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: cura-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cura
+      POSTGRES_USER: cura
+      POSTGRES_PASSWORD: cura
+    ports:
+      - "5432:5432"
+    volumes:
+      - cura_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  cura_postgres_data:

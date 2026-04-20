@@ -19,3 +19,13 @@ def test_lisp_bridge_normalizes_multiword_phase_four_symptoms() -> None:
     assert "dizziness" in result.canonical_symptoms
     assert result.unknown_terms == []
     assert any(match.source == "loss of taste and smell" for match in result.matched_phrases)
+
+
+def test_lisp_bridge_exposes_canonical_inventory_and_new_synonyms() -> None:
+    bridge = LispBridge()
+    inventory = set(bridge.canonical_inventory())
+    result = bridge.normalize("I can't keep anything down and I feel light headed.")
+
+    assert {"persistent_vomiting", "dizziness"} <= inventory
+    assert "persistent_vomiting" in result.canonical_symptoms
+    assert "dizziness" in result.canonical_symptoms

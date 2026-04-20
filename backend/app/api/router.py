@@ -4,29 +4,21 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
-from app.domain.models import DiagnosticBundle, TurnResult, UserSession
-from app.domain.session_store import InMemorySessionStore, SessionNotFoundError
-from app.integrations.lisp_bridge import LispBridge, LispBridgeError
-from app.integrations.prolog_bridge import PrologBridge, PrologBridgeError
-from app.repositories.consultation_log_repository import ConsultationLogRepository
+from app.bootstrap import get_consultation_service
+from app.domain.models import TurnResult, UserSession
+from app.domain.session_store import SessionNotFoundError
+from app.integrations.lisp_bridge import LispBridgeError
+from app.integrations.prolog_bridge import PrologBridgeError
 from app.schemas.api import (
     CreateSessionRequest,
     CreateSessionResponse,
     TurnResponse,
     UserTurnRequest,
 )
-from app.services.consultation_service import ConsultationService, InvalidTurnError
+from app.services.consultation_service import InvalidTurnError
+from app.services.normalization_service import NormalizationCatalogError
 
 router = APIRouter(prefix="/api/v1", tags=["consultation"])
-
-session_store = InMemorySessionStore()
-log_repository = ConsultationLogRepository()
-consultation_service = ConsultationService(
-    session_store=session_store,
-    lisp_bridge=LispBridge(),
-    prolog_bridge=PrologBridge(),
-    log_repository=log_repository,
-)
 
 
 def _session_state(session: UserSession) -> dict[str, object]:
@@ -69,6 +61,7 @@ def create_session(
     request: CreateSessionRequest,
     background_tasks: BackgroundTasks,
 ) -> CreateSessionResponse:
+    consultation_service = get_consultation_service()
     try:
         session = consultation_service.create_session(
             alias=request.alias,
@@ -100,6 +93,7 @@ def create_turn(
     request: UserTurnRequest,
     background_tasks: BackgroundTasks,
 ) -> TurnResponse:
+    consultation_service = get_consultation_service()
     try:
         if request.type == "free_text":
             if not request.message:
@@ -117,7 +111,7 @@ def create_turn(
             event_type = "follow_up_turn"
     except SessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
-    except (InvalidTurnError, LispBridgeError, PrologBridgeError) as exc:
+    except (InvalidTurnError, LispBridgeError, PrologBridgeError, NormalizationCatalogError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     background_tasks.add_task(
