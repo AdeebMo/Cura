@@ -21,14 +21,6 @@ from app.services.paradigm_catalog_service import (
     PrologCatalogInspector,
 )
 
-
-def _test_scratch_root() -> Path:
-    project_root = Path(__file__).resolve().parents[2]
-    scratch_root = project_root / "backend" / "tmp_test_runs"
-    scratch_root.mkdir(parents=True, exist_ok=True)
-    return scratch_root
-
-
 def build_service(work_directory: Path) -> ConsultationService:
     project_root = Path(__file__).resolve().parents[2]
     database_name = f"cura_test_{work_directory.name}"
@@ -81,7 +73,7 @@ def build_service(work_directory: Path) -> ConsultationService:
 
 
 def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         service = build_service(temp_dir)
         session = service.create_session(
@@ -119,7 +111,7 @@ def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
 
 
 def test_service_records_reasoning_metadata() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         service = build_service(temp_dir)
         session = service.create_session(
@@ -143,7 +135,7 @@ def test_service_records_reasoning_metadata() -> None:
 
 
 def test_service_persists_session_state_across_service_instances() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         first_service = build_service(temp_dir)
         session = first_service.create_session(
@@ -173,7 +165,7 @@ def test_service_persists_session_state_across_service_instances() -> None:
 
 
 def test_service_rejects_session_without_disclaimer() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         service = build_service(temp_dir)
 
@@ -194,7 +186,7 @@ def test_service_rejects_session_without_disclaimer() -> None:
 
 
 def test_service_flags_red_flag_symptoms_and_preserves_direct_token_matches() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         service = build_service(temp_dir)
         session = service.create_session(
@@ -222,7 +214,7 @@ def test_service_flags_red_flag_symptoms_and_preserves_direct_token_matches() ->
 
 
 def test_service_rejects_follow_up_for_the_wrong_question() -> None:
-    temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
+    temp_dir = Path(tempfile.mkdtemp(prefix="cura-test-"))
     try:
         service = build_service(temp_dir)
         session = service.create_session(

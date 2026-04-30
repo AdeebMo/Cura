@@ -6,6 +6,9 @@ __pycache__/
 backend/.coverage
 backend/htmlcov/
 backend/cura.db*
+backend/.pytest-tmp/
+backend/pytest-cache-files-*/
+backend/tmp*/
 backend/tmp_test_runs/
 frontend/node_modules/
 frontend/dist/
