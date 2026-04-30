@@ -5,9 +5,7 @@ from typing import Any
 
 from app.domain.models import (
     DiagnosticBundle,
-    FollowUpQuestion,
     MedicalRecord,
-    NormalizedInput,
     TurnResult,
     UserSession,
 )
@@ -15,7 +13,6 @@ from app.db.runtime import DatabaseRuntime
 from app.domain.session_store import SessionNotFoundError
 from app.repositories.consultation_event_repository import ConsultationEventRepository
 from app.repositories.consultation_message_repository import ConsultationMessageRepository
-from app.repositories.consultation_log_repository import ConsultationLogRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.diagnosis_service import DiagnosisService
 from app.services.normalization_service import NormalizationService
@@ -34,7 +31,6 @@ class ConsultationService:
         event_repository: ConsultationEventRepository,
         normalization_service: NormalizationService,
         diagnosis_service: DiagnosisService,
-        log_repository: ConsultationLogRepository,
     ) -> None:
         self._database_runtime = database_runtime
         self._session_repository = session_repository
@@ -42,7 +38,6 @@ class ConsultationService:
         self._event_repository = event_repository
         self._normalization_service = normalization_service
         self._diagnosis_service = diagnosis_service
-        self._log_repository = log_repository
 
     def create_session(
         self,
@@ -205,20 +200,6 @@ class ConsultationService:
                 normalized_input=None,
                 diagnostic_bundle=bundle,
             )
-
-    def log_session_snapshot(
-        self,
-        session: UserSession,
-        event_type: str,
-        context: dict[str, Any] | None = None,
-    ) -> None:
-        self._log_repository.append(
-            {
-                "event_type": event_type,
-                "context": context or {},
-                "session": session.state_payload(),
-            }
-        )
 
     def _persist_session_turn(
         self,

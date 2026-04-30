@@ -8,7 +8,7 @@ This package owns:
 - SQLAlchemy repositories and durable persistence
 - subprocess bridges to Common Lisp and SWI-Prolog
 - API contracts for the React frontend
-- consultation logging, seeding, and cross-paradigm validation
+- seeding and cross-paradigm validation
 
 ## Runtime Responsibilities
 

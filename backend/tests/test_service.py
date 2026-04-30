@@ -1,4 +1,3 @@
-import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,7 +8,6 @@ from app.integrations.lisp_bridge import LispBridge
 from app.integrations.prolog_bridge import PrologBridge
 from app.repositories.condition_catalog_repository import ConditionCatalogRepository
 from app.repositories.consultation_event_repository import ConsultationEventRepository
-from app.repositories.consultation_log_repository import ConsultationLogRepository
 from app.repositories.consultation_message_repository import ConsultationMessageRepository
 from app.repositories.question_catalog_repository import QuestionCatalogRepository
 from app.repositories.session_repository import SessionRepository
@@ -31,7 +29,7 @@ def _test_scratch_root() -> Path:
     return scratch_root
 
 
-def build_service(work_directory: Path) -> tuple[ConsultationService, Path]:
+def build_service(work_directory: Path) -> ConsultationService:
     project_root = Path(__file__).resolve().parents[2]
     database_name = f"cura_test_{work_directory.name}"
     test_settings = Settings(
@@ -72,28 +70,20 @@ def build_service(work_directory: Path) -> tuple[ConsultationService, Path]:
             inspector,
         ).validate(db_session)
 
-    log_path = _test_scratch_root() / f"{work_directory.name}.jsonl"
-    if log_path.exists():
-        log_path.unlink()
-
-    return (
-        ConsultationService(
-            database_runtime=database_runtime,
-            session_repository=session_repository,
-            message_repository=message_repository,
-            event_repository=event_repository,
-            normalization_service=normalization_service,
-            diagnosis_service=diagnosis_service,
-            log_repository=ConsultationLogRepository(log_path, test_settings),
-        ),
-        log_path,
+    return ConsultationService(
+        database_runtime=database_runtime,
+        session_repository=session_repository,
+        message_repository=message_repository,
+        event_repository=event_repository,
+        normalization_service=normalization_service,
+        diagnosis_service=diagnosis_service,
     )
 
 
 def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service, _ = build_service(temp_dir)
+        service = build_service(temp_dir)
         session = service.create_session(
             alias="Ava",
             age_group="adult",
@@ -128,10 +118,10 @@ def test_service_tracks_session_state_across_a_follow_up_turn() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def test_service_records_reasoning_metadata_and_snapshot() -> None:
+def test_service_records_reasoning_metadata() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service, snapshot_path = build_service(temp_dir)
+        service = build_service(temp_dir)
         session = service.create_session(
             alias="Noor",
             age_group="adult",
@@ -148,16 +138,6 @@ def test_service_records_reasoning_metadata_and_snapshot() -> None:
 
         assert assistant_metadata["decision_trace"]
         assert assistant_metadata["diagnoses"][0]["condition"] == "urinary_tract_infection"
-
-        service.log_session_snapshot(
-            turn.session,
-            "free_text_turn",
-            {"assistant_message": turn.assistant_message},
-        )
-
-        payload = json.loads(snapshot_path.read_text(encoding="utf-8").strip())
-        assert payload["event_type"] == "free_text_turn"
-        assert payload["context"]["assistant_message"] == turn.assistant_message
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -165,7 +145,7 @@ def test_service_records_reasoning_metadata_and_snapshot() -> None:
 def test_service_persists_session_state_across_service_instances() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        first_service, _ = build_service(temp_dir)
+        first_service = build_service(temp_dir)
         session = first_service.create_session(
             alias="Zayd",
             age_group="adult",
@@ -178,7 +158,7 @@ def test_service_persists_session_state_across_service_instances() -> None:
             "I have fever, cough, and a sore throat.",
         )
 
-        second_service, _ = build_service(temp_dir)
+        second_service = build_service(temp_dir)
         follow_up_turn = second_service.handle_follow_up_answer(
             session.session_id,
             initial_turn.diagnostic_bundle.next_question.id,
@@ -195,7 +175,7 @@ def test_service_persists_session_state_across_service_instances() -> None:
 def test_service_rejects_session_without_disclaimer() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service, _ = build_service(temp_dir)
+        service = build_service(temp_dir)
 
         try:
             service.create_session(
@@ -216,7 +196,7 @@ def test_service_rejects_session_without_disclaimer() -> None:
 def test_service_flags_red_flag_symptoms_and_preserves_direct_token_matches() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service, _ = build_service(temp_dir)
+        service = build_service(temp_dir)
         session = service.create_session(
             alias="Lina",
             age_group="adult",
@@ -244,7 +224,7 @@ def test_service_flags_red_flag_symptoms_and_preserves_direct_token_matches() ->
 def test_service_rejects_follow_up_for_the_wrong_question() -> None:
     temp_dir = Path(tempfile.mkdtemp(dir=_test_scratch_root()))
     try:
-        service, _ = build_service(temp_dir)
+        service = build_service(temp_dir)
         session = service.create_session(
             alias="Omar",
             age_group="adult",

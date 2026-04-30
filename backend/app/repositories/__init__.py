@@ -1,7 +1,6 @@
-"""Persistence helpers for consultation logs."""
+"""Persistence helpers for consultation data."""
 from app.repositories.condition_catalog_repository import ConditionCatalogRepository, ConditionSeed
 from app.repositories.consultation_event_repository import ConsultationEventRepository
-from app.repositories.consultation_log_repository import ConsultationLogRepository
 from app.repositories.consultation_message_repository import ConsultationMessageRepository
 from app.repositories.question_catalog_repository import QuestionCatalogRepository, QuestionSeed
 from app.repositories.session_repository import SessionRepository
@@ -11,7 +10,6 @@ __all__ = [
     "ConditionCatalogRepository",
     "ConditionSeed",
     "ConsultationEventRepository",
-    "ConsultationLogRepository",
     "ConsultationMessageRepository",
     "QuestionCatalogRepository",
     "QuestionSeed",

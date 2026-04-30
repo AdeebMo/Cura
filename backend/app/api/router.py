@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.bootstrap import get_consultation_service
 from app.domain.models import TurnResult, UserSession
@@ -41,26 +41,8 @@ def _turn_payload(result: TurnResult) -> dict[str, object]:
     }
 
 
-def _turn_log_context(result: TurnResult) -> dict[str, object]:
-    return {
-        "assistant_message": result.assistant_message,
-        "normalized_input": asdict(result.normalized_input) if result.normalized_input else None,
-        "diagnoses": [asdict(item) for item in result.diagnostic_bundle.diagnoses],
-        "next_question": (
-            asdict(result.diagnostic_bundle.next_question)
-            if result.diagnostic_bundle.next_question
-            else None
-        ),
-        "red_flags": [asdict(item) for item in result.diagnostic_bundle.red_flags],
-        "explanation_trace": result.diagnostic_bundle.explanation_trace,
-    }
-
-
 @router.post("/sessions", response_model=CreateSessionResponse, status_code=status.HTTP_201_CREATED)
-def create_session(
-    request: CreateSessionRequest,
-    background_tasks: BackgroundTasks,
-) -> CreateSessionResponse:
+def create_session(request: CreateSessionRequest) -> CreateSessionResponse:
     consultation_service = get_consultation_service()
     try:
         session = consultation_service.create_session(
@@ -74,12 +56,6 @@ def create_session(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     assistant_message = session.consultation_log.entries[-1].message
-    background_tasks.add_task(
-        consultation_service.log_session_snapshot,
-        session,
-        "session_created",
-        {"assistant_message": assistant_message},
-    )
     return CreateSessionResponse(
         session_id=session.session_id,
         assistant_message=assistant_message,
@@ -91,7 +67,6 @@ def create_session(
 def create_turn(
     session_id: str,
     request: UserTurnRequest,
-    background_tasks: BackgroundTasks,
 ) -> TurnResponse:
     consultation_service = get_consultation_service()
     try:
@@ -99,7 +74,6 @@ def create_turn(
             if not request.message:
                 raise InvalidTurnError("A free-text turn requires a message.")
             result = consultation_service.handle_free_text_turn(session_id, request.message)
-            event_type = "free_text_turn"
         else:
             if not request.question_id or not request.response:
                 raise InvalidTurnError("A follow-up turn requires question_id and response.")
@@ -108,16 +82,9 @@ def create_turn(
                 request.question_id,
                 request.response,
             )
-            event_type = "follow_up_turn"
     except SessionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found") from exc
     except (InvalidTurnError, LispBridgeError, PrologBridgeError, NormalizationCatalogError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    background_tasks.add_task(
-        consultation_service.log_session_snapshot,
-        result.session,
-        event_type,
-        _turn_log_context(result),
-    )
     return TurnResponse(**_turn_payload(result))

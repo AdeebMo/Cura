@@ -23,7 +23,6 @@ class Settings:
     database_echo: bool = _bool_env("CURA_DATABASE_ECHO", False)
     auto_initialize_database: bool = _bool_env("CURA_AUTO_INITIALIZE_DATABASE", True)
     validate_paradigms_on_startup: bool = _bool_env("CURA_VALIDATE_PARADIGMS_ON_STARTUP", True)
-    write_debug_snapshots: bool = _bool_env("CURA_WRITE_DEBUG_SNAPSHOTS", True)
 
     @property
     def lisp_entrypoint(self) -> Path:
@@ -34,14 +33,10 @@ class Settings:
         return self.project_root / "prolog" / "src" / "main.pl"
 
     @property
-    def consultation_log_path(self) -> Path:
-        return self.backend_root / "data" / "consultations.jsonl"
-
-    @property
     def resolved_database_url(self) -> str:
         if self.database_url:
             return self.database_url
-        return f"sqlite+pysqlite:///{(self.backend_root / 'data' / 'cura.db').as_posix()}"
+        return f"sqlite+pysqlite:///{(self.backend_root / 'cura.db').as_posix()}"
 
 
 settings = Settings()

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$pidFile = Join-Path $projectRoot "backend\data\backend.pid"
+$stateDir = Join-Path $env:TEMP "Cura"
+$pidFile = Join-Path $stateDir "backend.pid"
 
 if (-not (Test-Path $pidFile)) {
   Write-Host "No backend PID file was found."
@@ -24,4 +24,3 @@ try {
 }
 
 Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
-

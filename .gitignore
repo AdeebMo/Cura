@@ -5,7 +5,7 @@ __pycache__/
 .mypy_cache/
 backend/.coverage
 backend/htmlcov/
-backend/data/*.jsonl
+backend/cura.db*
 backend/tmp_test_runs/
 frontend/node_modules/
 frontend/dist/

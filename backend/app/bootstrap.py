@@ -9,7 +9,6 @@ from app.integrations.prolog_bridge import PrologBridge
 from app.repositories import (
     ConditionCatalogRepository,
     ConsultationEventRepository,
-    ConsultationLogRepository,
     ConsultationMessageRepository,
     QuestionCatalogRepository,
     SessionRepository,
@@ -68,7 +67,6 @@ def build_consultation_service(runtime_settings: Settings = settings) -> Consult
         event_repository=event_repository,
         normalization_service=normalization_service,
         diagnosis_service=diagnosis_service,
-        log_repository=ConsultationLogRepository(repo_settings=runtime_settings),
     )
 
 

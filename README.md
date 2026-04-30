@@ -55,7 +55,7 @@ The backend expects:
 
 Both are invoked as subprocesses by Python.
 
-If you want a zero-config local fallback while developing, omit `CURA_DATABASE_URL` and the backend will use `backend/data/cura.db`.
+If you want a zero-config local fallback while developing, omit `CURA_DATABASE_URL` and the backend will use `backend/cura.db`.
 
 ## Frontend Setup
 
